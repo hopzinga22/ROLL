@@ -1,0 +1,15 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      # Named volume, not a bind mount: the SQLite file lives inside this
+      # volume and survives `docker compose down` / rebuilds. Without this,
+      # every `docker compose up --build` would start with an empty database.
+      - roll_data:/app/data
+
+volumes:
+  roll_data:

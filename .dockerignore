@@ -1,0 +1,13 @@
+# Never bake secrets into an image — pass them at runtime via --env-file / env_file instead.
+.env
+
+# Local dev artifacts that don't belong in the image
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+roll.db
+.git/
+.gitignore
+*.zip
+.pytest_cache/

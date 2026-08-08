@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roll — Develop a frame</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <nav class="nav">
+    <a class="nav__brand" href="index.html"><span class="sprocket"></span>Roll</a>
+    <div class="nav__links">
+      <a href="index.html">feed</a>
+      <a href="upload.html" class="is-active">develop</a>
+      <a href="profile.html">reel</a>
+      <button class="btn btn--ghost btn--sm" onclick="logout()">sign out</button>
+    </div>
+  </nav>
+
+  <main class="page page--narrow">
+    <h1 class="page-title">Develop a frame</h1>
+    <p class="page-sub">Choose a photo and add a caption before it goes on your roll.</p>
+
+    <div class="form-error" id="upload-error"></div>
+
+    <form id="upload-form" novalidate>
+      <div class="dropzone" id="dropzone">
+        <div class="dropzone__label">Drop an image here, or click to choose one</div>
+        <div class="dropzone__hint">JPG or PNG, up to 10MB</div>
+        <input type="file" id="image-input" name="image" accept="image/png, image/jpeg" required />
+      </div>
+
+      <div class="preview" id="preview">
+        <img src="" alt="Selected frame preview" />
+      </div>
+
+      <div class="field">
+        <label for="caption-input">Caption</label>
+        <textarea id="caption-input" name="caption" placeholder="Say something about this frame…" maxlength="500"></textarea>
+      </div>
+
+      <button type="submit" class="btn btn--block">Develop frame</button>
+    </form>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/upload.js"></script>
+</body>
+</html>
