@@ -65,31 +65,6 @@ docker build -t roll-api .
 docker run -p 8000:8000 --env-file .env -v roll_data:/app/data roll-api
 ```
 
-## Deploying
-
-Before picking a host, know this about the current app: it uses **SQLite**, a
-single file on disk. That's fine anywhere with a persistent filesystem or
-volume (a VPS, Railway, Render, Fly.io — all of which run your Dockerfile
-directly). It is *not* fine on purely serverless/stateless compute, where the
-filesystem can reset between invocations and your data would vanish
-unpredictably.
-
-Vercel added Docker support for backends in mid-2026 — it can build and run
-a Dockerfile as a Vercel Function. If you go that route, the deciding factor
-is the same one above: Vercel Functions are stateless with no guaranteed
-durable storage, so SQLite isn't a safe fit there. The fix is switching
-`DATABASE_URL` to a hosted Postgres instance (Vercel Postgres, Supabase, and
-Neon all have free tiers) — SQLAlchemy makes that a config change, not a code
-change, since none of the models or queries are SQLite-specific. Worth
-confirming Vercel's current container/storage details directly before
-committing, since this feature is new and still evolving:
-https://vercel.com/docs
-
-If you'd rather not touch the database layer at all right now, Railway or
-Render will run this Dockerfile as-is, SQLite included, with a persistent
-volume — closer to a one-command deploy for where the project is today.
-
-
 ```
 app/
 ├── main.py            # FastAPI app, mounts routers + static frontend
@@ -112,7 +87,7 @@ frontend/                # static HTML/CSS/JS (unchanged from earlier)
 - Like / unlike (idempotent)
 - Profile page with post count and a grid of that user's posts
 
-## Not implemented yet (natural next steps)
+## Not implemented yet
 - Comments
 - Follow/unfollow — the feed currently shows everyone's posts, not just
   people you follow (`follower_count`/`following_count` are hardcoded to 0)
