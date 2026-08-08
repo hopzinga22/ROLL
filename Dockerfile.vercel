@@ -1,0 +1,31 @@
+# syntax=docker/dockerfile:1
+#
+# Dockerfile.vercel — used specifically by Vercel's container deployment.
+# Vercel looks for this exact filename; it's separate from ./Dockerfile,
+# which is what docker-compose uses for local development (fixed port 8000).
+#
+# The only real difference from ./Dockerfile: Vercel Functions route traffic
+# to whatever port the PORT env var specifies (defaulting to 80), so the
+# container needs to read that at startup instead of a hardcoded port.
+
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app ./app
+COPY frontend ./frontend
+
+# No volume/data dir here — unlike the local Dockerfile, there's nothing to
+# persist on disk now that the database lives in Supabase, not SQLite.
+
+# Shell form (not exec-array form) so ${PORT:-80} actually gets expanded.
+# `exec` inside it replaces the shell process with uvicorn, so uvicorn becomes
+# PID 1 and receives Vercel's SIGTERM directly on scale-down, instead of the
+# shell swallowing it and uvicorn never hearing about it.
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-80}"]
