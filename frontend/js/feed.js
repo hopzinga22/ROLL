@@ -5,6 +5,8 @@
 function renderFrame(post) {
   const liked = !!post.liked_by_me;
   const initial = (post.username || "?").charAt(0).toUpperCase();
+  const me = Api.getCurrentUser();
+  const isOwnPost = me && me.username === post.username;
 
   return `
     <article class="frame" data-post-id="${post.id}">
@@ -16,7 +18,14 @@ function renderFrame(post) {
             <div class="frame__meta">${timeAgo(post.created_at)}</div>
           </div>
         </div>
-        <span class="frame__index">#${String(post.id).padStart(4, "0")}</span>
+        <div class="frame__head-right">
+          <span class="frame__index">#${String(post.id).padStart(4, "0")}</span>
+          ${
+            isOwnPost
+              ? `<button class="frame__delete" data-action="delete-post" title="Delete this frame">&times;</button>`
+              : ""
+          }
+        </div>
       </div>
       <div class="frame__media">
         <img src="${post.image_url}" alt="${escapeHtml(post.caption || "Untitled frame")}" loading="lazy" />
@@ -26,13 +35,36 @@ function renderFrame(post) {
           <span class="heart">${liked ? "♥" : "♡"}</span>
           <span class="like-count">${post.like_count ?? 0}</span>
         </button>
+        <button class="comment-toggle" data-action="open-comments-modal">
+          <span class="comment-icon">&#9998;</span>
+          <span class="comment-count">${post.comment_count ?? 0}</span>
+        </button>
       </div>
       ${
         post.caption
           ? `<div class="frame__caption"><span class="u">${escapeHtml(post.username)}</span>${escapeHtml(post.caption)}</div>`
           : ""
       }
+      <div class="frame__comments-button-row">
+        <button class="btn btn--ghost btn--sm" data-action="open-comments-modal">View comments</button>
+      </div>
+      <div class="frame__comments" data-loaded="false" hidden>
+        <div class="frame__comments-list"></div>
+        <form class="frame__comment-form" data-action="submit-comment">
+          <input type="text" class="frame__comment-input" placeholder="Add a comment…" maxlength="500" required />
+          <button type="submit" class="btn btn--sm">Post</button>
+        </form>
+      </div>
     </article>
+  `;
+}
+
+function renderComment(comment) {
+  return `
+    <div class="comment" data-comment-id="${comment.id}">
+      <span class="comment__body"><span class="u">${escapeHtml(comment.username)}</span>${escapeHtml(comment.content)}</span>
+      ${comment.can_delete ? `<button class="comment__delete" data-action="delete-comment" title="Delete comment">&times;</button>` : ""}
+    </div>
   `;
 }
 
@@ -103,12 +135,127 @@ async function toggleLike(button) {
   }
 }
 
+async function toggleComments(button) {
+  const frame = button.closest(".frame");
+  const postId = frame.dataset.postId;
+  const panel = frame.querySelector(".frame__comments");
+  const list = frame.querySelector(".frame__comments-list");
+
+  const isHidden = panel.hasAttribute("hidden");
+  if (!isHidden) {
+    panel.setAttribute("hidden", "");
+    return;
+  }
+
+  panel.removeAttribute("hidden");
+
+  if (panel.dataset.loaded === "true") return; // already fetched once
+
+  list.innerHTML = `<div class="comment comment--loading">Loading comments…</div>`;
+  try {
+    const comments = await Api.getComments(postId);
+    list.innerHTML = comments.length
+      ? comments.map(renderComment).join("")
+      : `<div class="comment comment--empty">No comments yet — be the first.</div>`;
+    panel.dataset.loaded = "true";
+  } catch (err) {
+    list.innerHTML = `<div class="comment comment--empty">Couldn't load comments.</div>`;
+  }
+}
+
+async function submitComment(form) {
+  const frame = form.closest(".frame");
+  const postId = frame.dataset.postId;
+  const input = form.querySelector(".frame__comment-input");
+  const list = frame.querySelector(".frame__comments-list");
+  const countEl = frame.querySelector(".comment-count");
+  const content = input.value.trim();
+  if (!content) return;
+
+  const submitBtn = form.querySelector("button[type='submit']");
+  submitBtn.disabled = true;
+
+  try {
+    const comment = await Api.createComment(postId, content);
+    // if the "no comments yet" placeholder is showing, clear it first
+    const emptyState = list.querySelector(".comment--empty");
+    if (emptyState) emptyState.remove();
+
+    list.insertAdjacentHTML("beforeend", renderComment(comment));
+    countEl.textContent = Number(countEl.textContent) + 1;
+    input.value = "";
+  } catch (err) {
+    alert(err.message || "Couldn't post that comment.");
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+async function deleteComment(button) {
+  const commentEl = button.closest(".comment");
+  const commentId = commentEl.dataset.commentId;
+  const frame = button.closest(".frame");
+  const countEl = frame.querySelector(".comment-count");
+
+  button.disabled = true;
+  try {
+    await Api.deleteComment(commentId);
+    commentEl.remove();
+    countEl.textContent = Math.max(0, Number(countEl.textContent) - 1);
+  } catch (err) {
+    button.disabled = false;
+    alert(err.message || "Couldn't delete that comment.");
+  }
+}
+
+async function deletePost(button) {
+  if (!confirm("Delete this frame? This can't be undone.")) return;
+
+  const frame = button.closest(".frame");
+  const postId = frame.dataset.postId;
+
+  button.disabled = true;
+  try {
+    await Api.deletePost(postId);
+    frame.remove();
+    if (!document.querySelector("#feed .frame")) {
+      renderEmptyState(document.getElementById("feed"));
+    }
+  } catch (err) {
+    button.disabled = false;
+    alert(err.message || "Couldn't delete that frame.");
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   requireAuth();
   loadFeed();
 
-  document.getElementById("feed").addEventListener("click", (e) => {
+  const feedEl = document.getElementById("feed");
+
+  feedEl.addEventListener("click", (e) => {
     const likeBtn = e.target.closest("[data-action='like']");
-    if (likeBtn) toggleLike(likeBtn);
+    if (likeBtn) return toggleLike(likeBtn);
+
+    const commentToggle = e.target.closest("[data-action='open-comments-modal']");
+    if (commentToggle) {
+      const frame = commentToggle.closest(".frame");
+      const postId = Number(frame?.dataset.postId);
+      if (postId) return openCommentsModal(postId);
+    }
+
+    const deleteCommentBtn = e.target.closest("[data-action='delete-comment']");
+    if (deleteCommentBtn) return deleteComment(deleteCommentBtn);
+
+    const deletePostBtn = e.target.closest("[data-action='delete-post']");
+    if (deletePostBtn) return deletePost(deletePostBtn);
+  });
+
+  feedEl.addEventListener("submit", (e) => {
+    const form = e.target.closest("[data-action='submit-comment']");
+    if (form) {
+      e.preventDefault();
+      submitComment(form);
+    }
   });
 });

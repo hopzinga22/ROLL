@@ -26,6 +26,6 @@ Base = declarative_base()
 def init_db() -> None:
     """Create tables from models. Fine for learning/dev; use Alembic migrations later."""
     # Import models here so they're registered on Base.metadata before create_all runs.
-    from app.models import user, post  # noqa: F401
+    from app.models import user, post, comment  # noqa: F401
 
     Base.metadata.create_all(bind=engine)

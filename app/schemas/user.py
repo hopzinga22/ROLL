@@ -47,3 +47,12 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserOut
+
+
+class UserSearchResult(BaseModel):
+    """Slim shape for the username search dropdown — no email, no counts."""
+
+    id: int
+    username: str
+
+    model_config = ConfigDict(from_attributes=True)

@@ -19,6 +19,7 @@ class PostOut(BaseModel):
     image_url: str
     like_count: int
     liked_by_me: bool
+    comment_count: int
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

@@ -16,7 +16,10 @@ thumbnail URLs later.
 Install: pip install imagekitio
 """
 
+from io import BytesIO
+
 from fastapi import HTTPException, status
+from PIL import Image
 
 from imagekitio import ImageKit
 from app.config import get_settings
@@ -24,6 +27,32 @@ from app.config import get_settings
 settings = get_settings()
 
 client = ImageKit(private_key=settings.imagekit_private_key)
+
+
+def compress_images_to_webp(file_bytes: bytes, filename: str) -> tuple[bytes, str]:
+    """Resize and WebP-compress an uploaded post image before storing it."""
+    try:
+        with Image.open(BytesIO(file_bytes)) as image:
+            image = image.convert("RGB")
+
+            # Keep the original aspect ratio, but cap the largest side so the
+            # database / image host footprint stays predictable.
+            max_dimension = 1600
+            if max(image.size) > max_dimension:
+                image.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
+
+            webp_bytes = BytesIO()
+            image.save(webp_bytes, format="WEBP", quality=80, optimize=True)
+            compressed_bytes = webp_bytes.getvalue()
+
+            base_name = filename.rsplit(".", 1)[0] if "." in filename else filename
+            compressed_filename = f"{base_name}.webp"
+            return compressed_bytes, compressed_filename
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Image compression failed: {exc}",
+        ) from exc
 
 
 def upload_image(file_bytes: bytes, filename: str) -> tuple[str, str]:

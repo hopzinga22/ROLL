@@ -129,6 +129,31 @@ const Api = {
     return this.request(`/posts/${postId}/like`, { method: "DELETE" });
   },
 
+  deletePost(postId) {
+    return this.request(`/posts/${postId}`, { method: "DELETE" });
+  },
+
+  // ---- comments ----
+  getComments(postId) {
+    return this.request(`/posts/${postId}/comments`);
+  },
+
+  createComment(postId, content) {
+    return this.request(`/posts/${postId}/comments`, {
+      method: "POST",
+      body: { content },
+    });
+  },
+
+  deleteComment(commentId) {
+    return this.request(`/comments/${commentId}`, { method: "DELETE" });
+  },
+
+  // ---- search ----
+  searchUsers(query) {
+    return this.request(`/users/search?q=${encodeURIComponent(query)}`);
+  },
+
   // ---- users / "reels" ----
   getUser(username) {
     return this.request(`/users/${encodeURIComponent(username)}`);

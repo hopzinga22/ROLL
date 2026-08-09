@@ -31,3 +31,25 @@ def create_user(db: Session, user_in: UserCreate) -> User:
 
 def get_post_count(db: Session, user_id: int) -> int:
     return db.scalar(select(func.count(Post.id)).where(Post.author_id == user_id)) or 0
+
+
+def search_users(db: Session, query: str, limit: int = 10) -> list[User]:
+    """Case-insensitive "starts with or contains" username search, most relevant first.
+
+    ilike works the same on SQLite and Postgres, so this didn't need to change
+    when the project moved from SQLite to Supabase.
+    """
+    pattern = f"%{query}%"
+    stmt = (
+        select(User)
+        .where(User.username.ilike(pattern))
+        .order_by(
+            # Prefix matches ("jz" matches "jzuser") rank above matches in the
+            # middle of the name; ilike(...) returns a boolean, and ordering
+            # it desc puts True (prefix match) first on both SQLite and Postgres.
+            User.username.ilike(f"{query}%").desc(),
+            User.username,
+        )
+        .limit(limit)
+    )
+    return list(db.scalars(stmt).all())

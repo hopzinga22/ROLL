@@ -3,11 +3,19 @@
  * Reads ?user=<username> from the query string; defaults to the signed-in user.
  */
 
-function renderContactSheetCell(post) {
+function renderContactSheetCell(post, isOwnProfile) {
   return `
-    <a class="contact-sheet__cell" href="#" data-post-id="${post.id}">
+    <div class="contact-sheet__cell" data-post-id="${post.id}">
       <img src="${post.image_url}" alt="${escapeHtml(post.caption || "Frame")}" loading="lazy" />
-    </a>
+      <div class="contact-sheet__toolbar">
+        <button class="contact-sheet__comment" data-action="open-comments-modal">${post.comment_count ?? 0} comments</button>
+        ${
+          isOwnProfile
+            ? `<button class="contact-sheet__delete" data-action="delete-post" title="Delete this frame">&times;</button>`
+            : ""
+        }
+      </div>
+    </div>
   `;
 }
 
@@ -15,6 +23,7 @@ async function loadProfile() {
   const params = new URLSearchParams(window.location.search);
   const me = Api.getCurrentUser();
   const username = params.get("user") || me?.username;
+  const isOwnProfile = username === me?.username;
 
   const nameEl = document.getElementById("profile-name");
   const handleEl = document.getElementById("profile-handle");
@@ -23,7 +32,7 @@ async function loadProfile() {
   const sheetEl = document.getElementById("contact-sheet");
   const logoutBtn = document.getElementById("logout-btn");
 
-  logoutBtn.style.display = username === me?.username ? "inline-flex" : "none";
+  logoutBtn.style.display = isOwnProfile ? "inline-flex" : "none";
 
   try {
     const user = await Api.getUser(username);
@@ -46,7 +55,7 @@ async function loadProfile() {
       `;
       return;
     }
-    sheetEl.innerHTML = posts.map(renderContactSheetCell).join("");
+    sheetEl.innerHTML = posts.map((p) => renderContactSheetCell(p, isOwnProfile)).join("");
   } catch (err) {
     sheetEl.innerHTML = `
       <div class="state-block" style="grid-column: 1 / -1;">
@@ -57,8 +66,41 @@ async function loadProfile() {
   }
 }
 
+async function deleteProfilePost(button) {
+  if (!confirm("Delete this frame? This can't be undone.")) return;
+
+  const cell = button.closest(".contact-sheet__cell");
+  const postId = cell.dataset.postId;
+  const statsEl = document.getElementById("profile-stats");
+  const countEl = statsEl.querySelector("strong");
+
+  button.disabled = true;
+  try {
+    await Api.deletePost(postId);
+    cell.remove();
+    if (countEl) countEl.textContent = Math.max(0, Number(countEl.textContent) - 1);
+
+    const sheetEl = document.getElementById("contact-sheet");
+    if (!sheetEl.querySelector(".contact-sheet__cell")) {
+      sheetEl.innerHTML = `
+        <div class="state-block" style="grid-column: 1 / -1;">
+          <div class="state-block__title">No frames yet</div>
+          <p>Nothing developed on this reel so far.</p>
+        </div>
+      `;
+    }
+  } catch (err) {
+    button.disabled = false;
+    alert(err.message || "Couldn't delete that frame.");
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   requireAuth();
   loadProfile();
   document.getElementById("logout-btn").addEventListener("click", logout);
+  document.getElementById("contact-sheet").addEventListener("click", (e) => {
+    const deleteBtn = e.target.closest("[data-action='delete-post']");
+    if (deleteBtn) deleteProfilePost(deleteBtn);
+  });
 });

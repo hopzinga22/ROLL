@@ -34,6 +34,7 @@ def _to_post_out(post: Post, viewer_id: int, like_count: int) -> PostOut:
         image_url=post.image_url,
         like_count=like_count,
         liked_by_me=liked,
+        comment_count=len(post.comments),
         created_at=post.created_at,
     )
 
@@ -41,7 +42,7 @@ def _to_post_out(post: Post, viewer_id: int, like_count: int) -> PostOut:
 def get_feed(db: Session, viewer_id: int, cursor: int | None = None) -> list[PostOut]:
     stmt = (
         select(Post)
-        .options(selectinload(Post.author), selectinload(Post.likes))
+        .options(selectinload(Post.author), selectinload(Post.likes), selectinload(Post.comments))
         .order_by(Post.id.desc())
         .limit(FEED_PAGE_SIZE)
     )
@@ -57,7 +58,7 @@ def get_posts_by_username(db: Session, viewer_id: int, username: str) -> list[Po
         select(Post)
         .join(Post.author)
         .where(User.username == username)
-        .options(selectinload(Post.author), selectinload(Post.likes))
+        .options(selectinload(Post.author), selectinload(Post.likes), selectinload(Post.comments))
         .order_by(Post.id.desc())
     )
     posts = db.scalars(stmt).all()
@@ -79,6 +80,13 @@ def create_post(db: Session, author_id: int, image_url: str, image_file_id: str,
 
 def get_post(db: Session, post_id: int) -> Post | None:
     return db.get(Post, post_id)
+
+
+def delete_post(db: Session, post: Post) -> None:
+    """Deletes the DB row. The caller is responsible for deleting the ImageKit
+    file first — kept separate so a failed image delete doesn't block DB cleanup."""
+    db.delete(post)
+    db.commit()
 
 
 def like_post(db: Session, user_id: int, post_id: int) -> None:

@@ -10,7 +10,7 @@ from app.dependencies import get_db, get_current_user
 from app.schemas.post import PostOut
 from app.models.user import User
 from app.crud import post as post_crud
-from app.imagekit_client import upload_image
+from app.imagekit_client import upload_image, delete_image, compress_images_to_webp
 
 router = APIRouter(prefix="/api/posts", tags=["posts"])
 
@@ -47,7 +47,8 @@ async def create_post(
             detail="Image must be 10MB or smaller.",
         )
 
-    image_url, image_file_id = upload_image(file_bytes, image.filename or "frame.jpg")
+    compressed_bytes, compressed_filename = compress_images_to_webp(file_bytes, image.filename or "frame.jpg")
+    image_url, image_file_id = upload_image(compressed_bytes, compressed_filename)
 
     post = post_crud.create_post(
         db,
@@ -64,6 +65,7 @@ async def create_post(
         image_url=post.image_url,
         like_count=0,
         liked_by_me=False,
+        comment_count=0,
         created_at=post.created_at,
     )
 
@@ -77,6 +79,30 @@ def like_post(
     if not post_crud.get_post(db, post_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found.")
     post_crud.like_post(db, current_user.id, post_id)
+
+
+@router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    post = post_crud.get_post(db, post_id)
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found.")
+
+    if post.author_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own posts.",
+        )
+
+    # Best-effort: remove the image from ImageKit first. delete_image() already
+    # swallows its own errors, so a flaky ImageKit call never blocks removing
+    # the post from the feed — the file becoming an orphan in ImageKit is a
+    # much smaller problem than a delete button that silently does nothing.
+    delete_image(post.image_file_id)
+    post_crud.delete_post(db, post)
 
 
 @router.delete("/{post_id}/like", status_code=status.HTTP_204_NO_CONTENT)

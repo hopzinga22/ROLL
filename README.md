@@ -65,6 +65,44 @@ docker build -t roll-api .
 docker run -p 8000:8000 --env-file .env -v roll_data:/app/data roll-api
 ```
 
+## Deploying
+
+Before picking a host, know this about the current app: it uses **SQLite**, a
+single file on disk. That's fine anywhere with a persistent filesystem or
+volume (a VPS, Railway, Render, Fly.io — all of which run your Dockerfile
+directly). It is *not* fine on purely serverless/stateless compute, where the
+filesystem can reset between invocations and your data would vanish
+unpredictably.
+
+## Deploying to Vercel
+
+The database now lives in Supabase (not SQLite), which removes the one real
+blocker to hosting on Vercel's container support — the app is stateless from
+Vercel's point of view.
+
+1. Push this repo to GitHub (make sure `.env` stays out of it — `.gitignore`
+   already excludes it).
+2. On vercel.com, "Add New" → "Project" → import the repo. Vercel detects
+   `Dockerfile.vercel` (a separate file from `Dockerfile`, which is only used
+   by local `docker compose`) and shows a container icon confirming it.
+3. Before deploying, add these under "Environment Variables": `DATABASE_URL`
+   (your Supabase **Transaction pooler** string), `JWT_SECRET_KEY`,
+   `IMAGEKIT_PUBLIC_KEY`, `IMAGEKIT_PRIVATE_KEY`, `IMAGEKIT_URL_ENDPOINT`.
+4. Deploy. You'll get a `*.vercel.app` URL once the image builds.
+
+Two Vercel-specific details already handled in `Dockerfile.vercel`, in case
+you're comparing it against the local `Dockerfile`:
+- Vercel routes traffic to the port named in the `PORT` env var (default 80),
+  so the CMD reads `${PORT:-80}` instead of a hardcoded `8000`.
+- Vercel Functions scale to zero after 5 minutes idle (production) or 30
+  seconds (preview), and send `SIGTERM` on scale-down — `exec` in the CMD
+  makes uvicorn PID 1 so it actually receives that signal.
+
+If you'd rather not touch any of this and just want the exact Dockerfile you
+already tested locally to run somewhere, Railway or Render will do that with
+no `Dockerfile.vercel`/`$PORT` adjustments needed.
+
+
 ```
 app/
 ├── main.py            # FastAPI app, mounts routers + static frontend
@@ -87,7 +125,7 @@ frontend/                # static HTML/CSS/JS (unchanged from earlier)
 - Like / unlike (idempotent)
 - Profile page with post count and a grid of that user's posts
 
-## Not implemented yet
+## Not implemented yet (natural next steps)
 - Comments
 - Follow/unfollow — the feed currently shows everyone's posts, not just
   people you follow (`follower_count`/`following_count` are hardcoded to 0)
