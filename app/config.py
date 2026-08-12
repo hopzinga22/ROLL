@@ -1,9 +1,7 @@
 """
 config.py — central place for environment-driven settings.
 
-Reads from a .env file at the project root. You said you already have one
-with your ImageKit keys — just make sure it also has DATABASE_URL and
-JWT_SECRET_KEY (see .env.example for the full list).
+Reads from a .env file at the project root.
 """
 
 from functools import lru_cache
