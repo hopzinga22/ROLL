@@ -19,6 +19,40 @@ function renderContactSheetCell(post, isOwnProfile) {
   `;
 }
 
+function updateFollowButton(button, isFollowing) {
+  button.textContent = isFollowing ? "Following" : "Follow";
+  button.classList.toggle("btn--ghost", isFollowing);
+  button.dataset.following = isFollowing ? "true" : "false";
+}
+
+async function toggleFollow(button) {
+  const username = button.dataset.username;
+  const wasFollowing = button.dataset.following === "true";
+
+  button.disabled = true;
+  try {
+    if (wasFollowing) {
+      await Api.unfollowUser(username);
+    } else {
+      await Api.followUser(username);
+    }
+    updateFollowButton(button, !wasFollowing);
+
+    // keep the follower count in profile-stats in sync (2nd <strong> is followers)
+    const followerCountEl = document.querySelectorAll("#profile-stats strong")[1];
+    if (followerCountEl) {
+      followerCountEl.textContent = Math.max(
+        0,
+        Number(followerCountEl.textContent) + (wasFollowing ? -1 : 1)
+      );
+    }
+  } catch (err) {
+    alert(err.message || "Couldn't update follow status.");
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function loadProfile() {
   const params = new URLSearchParams(window.location.search);
   const me = Api.getCurrentUser();
@@ -31,6 +65,7 @@ async function loadProfile() {
   const statsEl = document.getElementById("profile-stats");
   const sheetEl = document.getElementById("contact-sheet");
   const logoutBtn = document.getElementById("logout-btn");
+  const followBtn = document.getElementById("follow-btn");
 
   logoutBtn.style.display = isOwnProfile ? "inline-flex" : "none";
 
@@ -44,6 +79,14 @@ async function loadProfile() {
       <span><strong>${user.follower_count ?? 0}</strong>followers</span>
       <span><strong>${user.following_count ?? 0}</strong>following</span>
     `;
+
+    if (isOwnProfile) {
+      followBtn.hidden = true;
+    } else {
+      followBtn.hidden = false;
+      followBtn.dataset.username = user.username;
+      updateFollowButton(followBtn, !!user.is_following);
+    }
 
     const posts = await Api.getUserPosts(username);
     if (!posts || posts.length === 0) {
@@ -99,6 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
   requireAuth();
   loadProfile();
   document.getElementById("logout-btn").addEventListener("click", logout);
+  document.getElementById("follow-btn").addEventListener("click", (e) => toggleFollow(e.currentTarget));
   document.getElementById("contact-sheet").addEventListener("click", (e) => {
     const deleteBtn = e.target.closest("[data-action='delete-post']");
     if (deleteBtn) deleteProfilePost(deleteBtn);

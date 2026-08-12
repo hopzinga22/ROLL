@@ -7,17 +7,18 @@ function renderFrame(post) {
   const initial = (post.username || "?").charAt(0).toUpperCase();
   const me = Api.getCurrentUser();
   const isOwnPost = me && me.username === post.username;
+  const profileHref = `profile.html?user=${encodeURIComponent(post.username)}`;
 
   return `
     <article class="frame" data-post-id="${post.id}">
       <div class="frame__head">
-        <div class="frame__author">
+        <a class="frame__author" href="${profileHref}">
           <span class="frame__avatar">${escapeHtml(initial)}</span>
           <div>
             <div class="frame__username">${escapeHtml(post.username)}</div>
             <div class="frame__meta">${timeAgo(post.created_at)}</div>
           </div>
-        </div>
+        </a>
         <div class="frame__head-right">
           <span class="frame__index">#${String(post.id).padStart(4, "0")}</span>
           ${
@@ -42,7 +43,7 @@ function renderFrame(post) {
       </div>
       ${
         post.caption
-          ? `<div class="frame__caption"><span class="u">${escapeHtml(post.username)}</span>${escapeHtml(post.caption)}</div>`
+          ? `<div class="frame__caption"><a class="u" href="${profileHref}">${escapeHtml(post.username)}</a>${escapeHtml(post.caption)}</div>`
           : ""
       }
       <div class="frame__comments-button-row">
@@ -62,7 +63,7 @@ function renderFrame(post) {
 function renderComment(comment) {
   return `
     <div class="comment" data-comment-id="${comment.id}">
-      <span class="comment__body"><span class="u">${escapeHtml(comment.username)}</span>${escapeHtml(comment.content)}</span>
+      <span class="comment__body"><a class="u" href="profile.html?user=${encodeURIComponent(comment.username)}">${escapeHtml(comment.username)}</a>${escapeHtml(comment.content)}</span>
       ${comment.can_delete ? `<button class="comment__delete" data-action="delete-comment" title="Delete comment">&times;</button>` : ""}
     </div>
   `;

@@ -773,6 +773,10 @@ img { max-width: 100%; display: block; }
   margin-bottom: 8px;
 }
 
+.profile-head__info {
+  flex: 1;
+}
+
 .profile-avatar {
   width: 74px;
   height: 74px;

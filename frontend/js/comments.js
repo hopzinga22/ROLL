@@ -42,9 +42,9 @@ function renderCommentModalList(comments) {
     return;
   }
 
-  list.innerHTML = comments.map((comment) => `
+   list.innerHTML = comments.map((comment) => `
     <div class="comment" data-comment-id="${comment.id}">
-      <span class="comment__body"><span class="u">${escapeHtml(comment.username)}</span>${escapeHtml(comment.content)}</span>
+      <span class="comment__body"><a class="u" href="profile.html?user=${encodeURIComponent(comment.username)}">${escapeHtml(comment.username)}</a>${escapeHtml(comment.content)}</span>
       ${comment.can_delete ? `<button class="comment__delete" data-action="delete-comment" title="Delete comment">×</button>` : ""}
     </div>
   `).join("");
@@ -144,7 +144,7 @@ document.addEventListener("submit", async (e) => {
 
       list.insertAdjacentHTML("beforeend", `
         <div class="comment" data-comment-id="${comment.id}">
-          <span class="comment__body"><span class="u">${escapeHtml(comment.username)}</span>${escapeHtml(comment.content)}</span>
+          <span class="comment__body"><a class="u" href="profile.html?user=${encodeURIComponent(comment.username)}">${escapeHtml(comment.username)}</a>${escapeHtml(comment.content)}</span>
           <button class="comment__delete" data-action="delete-comment" title="Delete comment">×</button>
         </div>
       `);

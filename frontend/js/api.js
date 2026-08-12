@@ -163,6 +163,14 @@ const Api = {
     return this.request(`/users/${encodeURIComponent(username)}/posts`);
   },
 
+  followUser(username) {
+    return this.request(`/users/${encodeURIComponent(username)}/follow`, { method: "POST" });
+  },
+
+  unfollowUser(username) {
+    return this.request(`/users/${encodeURIComponent(username)}/follow`, { method: "DELETE" });
+  },
+
   getMe() {
     return this.request("/users/me");
   },

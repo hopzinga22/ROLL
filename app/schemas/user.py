@@ -39,6 +39,8 @@ class UserProfile(BaseModel):
     post_count: int = 0
     follower_count: int = 0  # placeholder until follows exist; always 0 for now
     following_count: int = 0
+    is_following: int = 0
+    is_following: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

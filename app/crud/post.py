@@ -1,16 +1,18 @@
 """
 crud/post.py — database operations for posts and likes.
 
-v1 feed is intentionally simple: everyone's posts, newest first, paginated
-with a cursor on id. Swap this for a "posts from people I follow" query
-once follows exist — the router won't need to change, just this function.
+Feed ordering: posts from people you follow come first (newest first within
+that group), then everyone else's posts (also newest first). This keeps the
+feed useful before you've followed anyone — it just falls back to "everyone" —
+while surfacing followed accounts once you have.
 """
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, case
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.post import Post, Like
 from app.models.user import User
+from app.models.follow import Follow
 from app.schemas.post import PostOut
 
 FEED_PAGE_SIZE = 20
@@ -40,10 +42,17 @@ def _to_post_out(post: Post, viewer_id: int, like_count: int) -> PostOut:
 
 
 def get_feed(db: Session, viewer_id: int, cursor: int | None = None) -> list[PostOut]:
+    following_ids = (
+        select(Follow.followed_id).where(Follow.follower_id == viewer_id).scalar_subquery()
+    )
+    # 0 for posts from someone you follow, 1 for everyone else — sorting
+    # ascending on this puts followed accounts' posts first.
+    followed_rank = case((Post.author_id.in_(following_ids), 0), else_=1)
+
     stmt = (
         select(Post)
         .options(selectinload(Post.author), selectinload(Post.likes), selectinload(Post.comments))
-        .order_by(Post.id.desc())
+        .order_by(followed_rank, Post.id.desc())
         .limit(FEED_PAGE_SIZE)
     )
     if cursor is not None:
@@ -83,26 +92,20 @@ def get_post(db: Session, post_id: int) -> Post | None:
 
 
 def delete_post(db: Session, post: Post) -> None:
-    """Deletes the DB row. The caller is responsible for deleting the ImageKit
-    file first — kept separate so a failed image delete doesn't block DB cleanup."""
     db.delete(post)
     db.commit()
 
 
 def like_post(db: Session, user_id: int, post_id: int) -> None:
-    existing = db.scalar(
-        select(Like).where(Like.user_id == user_id, Like.post_id == post_id)
-    )
+    existing = db.scalar(select(Like).where(Like.user_id == user_id, Like.post_id == post_id))
     if existing:
-        return  # already liked — idempotent
+        return
     db.add(Like(user_id=user_id, post_id=post_id))
     db.commit()
 
 
 def unlike_post(db: Session, user_id: int, post_id: int) -> None:
-    existing = db.scalar(
-        select(Like).where(Like.user_id == user_id, Like.post_id == post_id)
-    )
+    existing = db.scalar(select(Like).where(Like.user_id == user_id, Like.post_id == post_id))
     if existing:
         db.delete(existing)
         db.commit()

@@ -13,7 +13,6 @@ from app.database import init_db
 from app.routers import auth, users, posts, comments
 
 app = FastAPI(title="Roll API")
-
 # --- API routers -----------------------------------------------------------
 app.include_router(auth.router)
 app.include_router(users.router)
